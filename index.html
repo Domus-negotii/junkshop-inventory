@@ -7,22 +7,7 @@
     
     <meta name="theme-color" content="#27ae60">
     <meta name="description" content="Renz Junkshop Inventory and Sales Management System">
-    <link rel="manifest" href="data:application/json,{
-        'name': 'Renz Junkshop',
-        'short_name': 'RenzShop',
-        'description': 'Junkshop Inventory and Sales System',
-        'start_url': '/',
-        'display': 'standalone',
-        'background_color': '#ffffff',
-        'theme_color': '#27ae60',
-        'icons': [
-            {
-                'src': 'data:image/svg+xml,<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 100 100\\\"><rect width=\\\"100\\\" height=\\\"100\\\" fill=\\\"%2327ae60\\\"/><text x=\\\"50\\\" y=\\\"60\\\" font-size=\\\"60\\\" text-anchor=\\\"middle\\\" fill=\\\"white\\\"></text></svg>',
-                'sizes': '192x192',
-                'type': 'image/svg+xml'
-            }
-        ]
-    }">
+    <link rel="manifest" href="manifest.json">
     
     <style>
         * {
@@ -31,59 +16,21 @@
             box-sizing: border-box;
         }
         
-        /* --- NEW/REPLACED CSS FOR MOBILE SCROLLING FIX --- */
-        html {
-            height: 100%; /* Ensure html takes full viewport height */
-        }
-
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             font-size: 16px;
             line-height: 1.6;
             background: linear-gradient(135deg, #27ae60 0%, #2ecc71 50%, #58d68d 100%);
-            min-height: 100vh; /* Ensure body is at least full viewport height */
-            margin: 0; /* Remove default body margin */
-            padding: 0; /* Remove default body padding */
-            overflow-x: hidden; /* Prevent horizontal scrolling on the body */
-            overflow-y: scroll; /* Force vertical scrollbar on body if content overflows */
-            -webkit-overflow-scrolling: touch; /* Enable smooth scrolling on iOS */
-            padding-bottom: 80px; /* Add extra padding at the bottom of the body to account for iPhone's bottom bar */
+            min-height: 100vh;
         }
-
+        
         .container {
             max-width: 1400px;
-            margin: 0 auto; /* Center the container horizontally */
+            margin: 0 auto;
             background: white;
-            min-height: calc(100vh - 80px); /* Adjust min-height to account for body padding-bottom */
+            min-height: 100vh;
             box-shadow: 0 0 30px rgba(0,0,0,0.3);
-            display: flex; /* Keep flexbox for internal layout */
-            flex-direction: column; /* Stack children vertically */
-            /* REMEMBER: You would remove any old overflow-y: auto/scroll from .container if it existed */
         }
-
-        /* Adjust the main content area to take available space */
-        .tab-content {
-            flex-grow: 1; /* Allow tab content to expand and push footer down if any */
-            padding-bottom: 20px; /* Add some internal padding at the bottom of tab content */
-        }
-
-        /* General table responsiveness (if not already handled, or for better scroll) */
-        .data-table {
-            overflow-x: auto; /* Ensures tables can scroll horizontally if too wide */
-            -webkit-overflow-scrolling: touch; /* Smooth scrolling for tables on iOS */
-        }
-
-        /* Optional: For even tighter spacing on very small screens, you can add this */
-        @media (max-width: 480px) { /* For smaller phones */
-            th, td {
-                padding: 8px 5px; /* Even tighter padding within tables */
-            }
-            .action-btn {
-                padding: 4px 8px; /* Smaller buttons */
-                font-size: 10px;
-            }
-        }
-        /* --- END OF NEW/REPLACED CSS --- */
         
         .header {
             background: linear-gradient(135deg, #1e8449, #27ae60, #2ecc71);
@@ -573,7 +520,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>RENZ JUNKSHOP</h1>
+            <h1>♻️ RENZ JUNKSHOP</h1>
             <p>Professional Inventory & Sales Management System</p>
         </div>
         
@@ -893,6 +840,795 @@
                 <input type="text" id="customerName" placeholder="Enter customer name">
             </div>
             <div class="control-group">
-                <label for="paymentMethod">Payment Method</label>
-                <select id="paymentMethod">
-                    <option value="Cash">Cash
+                <label>&nbsp;</label>
+                <button onclick="processSale()">Complete Sale</button>
+                <button onclick="closeSellModal()" class="btn-danger">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="receiptModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeReceiptModal()">&times;</span>
+            <div class="receipt" id="receiptContent">
+                </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button onclick="printReceipt()" class="btn-info">Print Receipt</button>
+                <button onclick="closeReceiptModal()" class="btn-danger">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let inventory = [];
+        let sales = [];
+        let settings = {
+            shopName: "RENZ JUNKSHOP",
+            shopAddress: "",
+            shopPhone: ""
+        };
+        let currentSellItem = null;
+        
+        // Common junkshop items by category
+        const commonItems = {
+            "Metal Scraps": ["Aluminum Cans", "Copper Wire", "Steel Sheets", "Iron Scraps", "Brass Items"],
+            "Electronics": ["Old Phones", "Computer Parts", "TV Components", "Radio Parts", "Circuit Boards"],
+            "Appliances": ["Electric Fans", "Rice Cookers", "Washing Machine Parts", "Refrigerator Parts", "Microwave Parts"],
+            "Paper/Cardboard": ["Newspapers", "Magazines", "Cardboard Boxes", "Office Papers", "Books"],
+            "Plastic Items": ["Plastic Bottles", "Containers", "Toys", "Chairs", "Buckets"],
+            "Glass Items": ["Bottles", "Jars", "Windows", "Mirrors", "Glassware"],
+            "Furniture": ["Chairs", "Tables", "Cabinets", "Beds", "Sofas"],
+            "Car Parts": ["Tires", "Batteries", "Engines", "Radiators", "Bumpers"],
+            "Tools": ["Hammers", "Screwdrivers", "Wrenches", "Pliers", "Saws"],
+            "Cables/Wires": ["Extension Cords", "Speaker Wires", "Network Cables", "Power Cables", "Coaxial Cables"],
+            "Batteries": ["Car Batteries", "Phone Batteries", "AA Batteries", "Lead Acid", "Lithium Batteries"],
+            "Other Items": ["Clothing", "Books", "Kitchenware", "Decorations", "Sports Equipment"]
+        };
+        
+        // Initialize system
+        window.onload = function() {
+            loadAllData();
+            updateAllDisplays();
+            updateLastUpdated();
+            
+            // Add category change listener
+            document.getElementById('category').addEventListener('change', function() {
+                updateItemSuggestions();
+            });
+        };
+        
+        function updateItemSuggestions() {
+            const category = document.getElementById('category').value;
+            const itemNameInput = document.getElementById('itemName');
+            
+            if (category && commonItems[category]) {
+                itemNameInput.placeholder = `e.g., ${commonItems[category][0]}`;
+            } else {
+                itemNameInput.placeholder = "Enter item name";
+            }
+        }
+        
+        function showTab(tabName) {
+            // Hide all tabs
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // Remove active from all buttons
+            const buttons = document.querySelectorAll('.tab-button');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Update displays when switching tabs
+            if (tabName === 'sales') {
+                renderSales();
+                updateSalesDisplays();
+            } else if (tabName === 'reports') {
+                updateReportsDisplays();
+            }
+        }
+        
+        function addItem() {
+            const category = document.getElementById('category').value;
+            const itemName = document.getElementById('itemName').value.trim();
+            const quantity = parseInt(document.getElementById('quantity').value) || 0;
+            const unit = document.getElementById('unit').value;
+            const buyPrice = parseFloat(document.getElementById('buyPrice').value) || 0;
+            const sellPrice = parseFloat(document.getElementById('sellPrice').value) || 0;
+            const minStock = parseInt(document.getElementById('minStock').value) || 0;
+            const description = document.getElementById('description').value.trim();
+            
+            if (!category || !itemName) {
+                alert('Please fill in category and item name!');
+                return;
+            }
+            
+            const item = {
+                id: Date.now(),
+                category,
+                itemName,
+                quantity,
+                unit,
+                buyPrice,
+                sellPrice,
+                minStock,
+                description,
+                dateAdded: new Date().toISOString()
+            };
+            
+            inventory.push(item);
+            saveAllData();
+            renderInventory();
+            updateAllDisplays();
+            updateLastUpdated();
+            clearForm();
+            
+            alert('Item added successfully!');
+        }
+        
+        function clearForm() {
+            document.getElementById('category').value = '';
+            document.getElementById('itemName').value = '';
+            document.getElementById('quantity').value = '';
+            document.getElementById('buyPrice').value = '';
+            document.getElementById('sellPrice').value = '';
+            document.getElementById('minStock').value = '';
+            document.getElementById('description').value = '';
+            document.getElementById('itemName').placeholder = "Enter item name";
+        }
+        
+        function renderInventory() {
+            const tbody = document.getElementById('inventoryBody');
+            
+            if (inventory.length === 0) {
+                tbody.innerHTML = `
+                    <tr class="empty-state">
+                        <td colspan="9">
+                            <h3>No items in inventory</h3>
+                            <p>Add your first item using the form above</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = inventory.map(item => {
+                const totalValue = (item.quantity * item.sellPrice).toFixed(2);
+                const isLowStock = item.quantity <= item.minStock;
+                const statusClass = isLowStock ? 'status-low' : 'status-normal';
+                const statusText = isLowStock ? 'Low Stock' : 'In Stock';
+                
+                return `
+                    <tr>
+                        <td>${item.category}</td>
+                        <td><strong>${item.itemName}</strong><br><small>${item.description}</small></td>
+                        <td>${item.quantity}</td>
+                        <td>${item.unit}</td>
+                        <td>₱${item.buyPrice.toFixed(2)}</td>
+                        <td>₱${item.sellPrice.toFixed(2)}</td>
+                        <td>₱${totalValue}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td>
+                            <button class="action-btn btn-sell" onclick="openSellModal(${item.id})">Sell</button>
+                            <button class="action-btn btn-edit" onclick="editItem(${item.id})">Edit</button>
+                            <button class="action-btn btn-delete" onclick="deleteItem(${item.id})">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        function openSellModal(itemId) {
+            const item = inventory.find(i => i.id === itemId);
+            if (!item) return;
+            
+            if (item.quantity <= 0) {
+                alert('Item is out of stock!');
+                return;
+            }
+            
+            currentSellItem = item;
+            document.getElementById('sellItemName').value = item.itemName;
+            document.getElementById('sellQuantity').value = 1;
+            document.getElementById('sellQuantity').max = item.quantity;
+            document.getElementById('sellPriceModal').value = item.sellPrice;
+            document.getElementById('customerName').value = '';
+            
+            document.getElementById('sellModal').style.display = 'block';
+        }
+        
+        function closeSellModal() {
+            document.getElementById('sellModal').style.display = 'none';
+            currentSellItem = null;
+        }
+        
+        function processSale() {
+            if (!currentSellItem) return;
+            
+            const quantityToSell = parseInt(document.getElementById('sellQuantity').value);
+            const sellPrice = parseFloat(document.getElementById('sellPriceModal').value);
+            const customerName = document.getElementById('customerName').value.trim() || 'Walk-in Customer';
+            
+            if (quantityToSell <= 0 || quantityToSell > currentSellItem.quantity) {
+                alert('Invalid quantity!');
+                return;
+            }
+            
+            if (sellPrice <= 0) {
+                alert('Invalid sell price!');
+                return;
+            }
+            
+            // Create sale record
+            const sale = {
+                id: Date.now(),
+                itemId: currentSellItem.id,
+                itemName: currentSellItem.itemName,
+                category: currentSellItem.category,
+                quantitySold: quantityToSell,
+                sellPrice: sellPrice,
+                buyPrice: currentSellItem.buyPrice,
+                totalAmount: quantityToSell * sellPrice,
+                profit: (sellPrice - currentSellItem.buyPrice) * quantityToSell,
+                customerName: customerName,
+                date: new Date().toISOString(),
+                dateString: new Date().toLocaleDateString()
+            };
+            
+            // Update inventory
+            currentSellItem.quantity -= quantityToSell;
+            
+            // Add to sales
+            sales.push(sale);
+            
+            // Save and update displays
+            saveAllData();
+            renderInventory();
+            updateAllDisplays();
+            updateLastUpdated();
+            
+            // Show receipt
+            showReceipt(sale);
+            
+            closeSellModal();
+        }
+        
+        function showReceipt(sale) {
+            const receiptContent = document.getElementById('receiptContent');
+            const now = new Date();
+            
+            receiptContent.innerHTML = `
+                <div class="receipt-header">
+                    <h2>${settings.shopName}</h2>
+                    <p>${settings.shopAddress}</p>
+                    <p>${settings.shopPhone}</p>
+                    <p>Date: ${now.toLocaleDateString()}</p>
+                    <p>Time: ${now.toLocaleTimeString()}</p>
+                </div>
+                
+                <div style="margin: 15px 0;">
+                    <p><strong>Customer:</strong> ${sale.customerName}</p>
+                    <p><strong>Item:</strong> ${sale.itemName}</p>
+                    <p><strong>Category:</strong> ${sale.category}</p>
+                    <p><strong>Quantity:</strong> ${sale.quantitySold}</p>
+                    <p><strong>Price per unit:</strong> ₱${sale.sellPrice.toFixed(2)}</p>
+                    <hr style="border: 1px dashed #ccc; margin: 10px 0;">
+                    <p><strong>TOTAL: ₱${sale.totalAmount.toFixed(2)}</strong></p>
+                </div>
+                
+                <div class="receipt-footer">
+                    <p>Thank you for your business!</p>
+                    <p>Visit us again!</p>
+                </div>
+            `;
+            
+            document.getElementById('receiptModal').style.display = 'block';
+        }
+        
+        function closeReceiptModal() {
+            document.getElementById('receiptModal').style.display = 'none';
+        }
+        
+        function printReceipt() {
+            const receiptContent = document.getElementById('receiptContent').innerHTML;
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Receipt</title>
+                    <style>
+                        body { font-family: 'Courier New', monospace; margin: 20px; }
+                        .receipt-header, .receipt-footer { text-align: center; }
+                        hr { border: 1px dashed #000; }
+                    </style>
+                </head>
+                <body>${receiptContent}</body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
+        }
+        
+        function editItem(itemId) {
+            const item = inventory.find(i => i.id === itemId);
+            if (!item) return;
+            
+            // Fill form with item data
+            document.getElementById('category').value = item.category;
+            document.getElementById('itemName').value = item.itemName;
+            document.getElementById('quantity').value = item.quantity;
+            document.getElementById('unit').value = item.unit;
+            document.getElementById('buyPrice').value = item.buyPrice;
+            document.getElementById('sellPrice').value = item.sellPrice;
+            document.getElementById('minStock').value = item.minStock;
+            document.getElementById('description').value = item.description;
+            
+            // Remove item from inventory
+            inventory = inventory.filter(i => i.id !== itemId);
+            
+            saveAllData();
+            renderInventory();
+            updateAllDisplays();
+            
+            alert('Item loaded for editing. Make changes and click "Add Item".');
+        }
+        
+        function deleteItem(itemId) {
+            if (confirm('Are you sure you want to delete this item?')) {
+                inventory = inventory.filter(i => i.id !== itemId);
+                saveAllData();
+                renderInventory();
+                updateAllDisplays();
+                updateLastUpdated();
+            }
+        }
+        
+        function renderSales() {
+            const tbody = document.getElementById('salesBody');
+            
+            if (sales.length === 0) {
+                tbody.innerHTML = `
+                    <tr class="empty-state">
+                        <td colspan="8">
+                            <h3>No sales recorded</h3>
+                            <p>Start selling items from your inventory</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            // Sort sales by date (newest first)
+            const sortedSales = [...sales].sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            tbody.innerHTML = sortedSales.map(sale => `
+                <tr>
+                    <td>${sale.dateString}</td>
+                    <td>${sale.itemName}</td>
+                    <td>${sale.category}</td>
+                    <td>${sale.quantitySold}</td>
+                    <td>₱${sale.sellPrice.toFixed(2)}</td>
+                    <td>₱${sale.totalAmount.toFixed(2)}</td>
+                    <td>₱${sale.profit.toFixed(2)}</td>
+                    <td>${sale.customerName}</td>
+                </tr>
+            `).join('');
+        }
+        
+        function updateAllDisplays() {
+            updateInventoryDisplays();
+            updateSalesDisplays();
+            updateReportsDisplays();
+        }
+        
+        function updateInventoryDisplays() {
+            const totalItems = inventory.length;
+            const categories = [...new Set(inventory.map(item => item.category))].length;
+            const lowStockItems = inventory.filter(item => item.quantity <= item.minStock).length;
+            const totalValue = inventory.reduce((sum, item) => sum + (item.quantity * item.sellPrice), 0);
+            
+            document.getElementById('totalItems').textContent = totalItems;
+            document.getElementById('totalCategories').textContent = categories;
+            document.getElementById('lowStockItems').textContent = lowStockItems;
+            document.getElementById('totalValue').textContent = `₱${totalValue.toFixed(2)}`;
+        }
+        
+        function updateSalesDisplays() {
+            const today = new Date().toLocaleDateString();
+            const todaySales = sales.filter(sale => sale.dateString === today);
+            
+            const todaysRevenue = todaySales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+            const todaysProfit = todaySales.reduce((sum, sale) => sum + sale.profit, 0);
+            const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+            
+            document.getElementById('todaySales').textContent = todaysRevenue.toFixed(2);
+            document.getElementById('todaySalesCard').textContent = `₱${todaysRevenue.toFixed(2)}`;
+            document.getElementById('itemsSoldToday').textContent = todaySales.length;
+            document.getElementById('todaysProfit').textContent = `₱${todaysProfit.toFixed(2)}`;
+            document.getElementById('totalSalesEver').textContent = `₱${totalRevenue.toFixed(2)}`;
+        }
+        
+        function updateReportsDisplays() {
+            const now = new Date();
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            
+            const weekSales = sales.filter(sale => new Date(sale.date) >= weekAgo);
+            const monthSales = sales.filter(sale => new Date(sale.date) >= monthAgo);
+            
+            const weekRevenue = weekSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+            const monthRevenue = monthSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+            
+            // Best category
+            const categoryStats = {};
+            sales.forEach(sale => {
+                categoryStats[sale.category] = (categoryStats[sale.category] || 0) + sale.totalAmount;
+            });
+            
+            const bestCategory = Object.keys(categoryStats).reduce((a, b) => 
+                categoryStats[a] > categoryStats[b] ? a : b, '-');
+            
+            const avgSale = sales.length > 0 ? sales.reduce((sum, sale) => sum + sale.totalAmount, 0) / sales.length : 0;
+            
+            document.getElementById('weekSales').textContent = `₱${weekRevenue.toFixed(2)}`;
+            document.getElementById('monthSales').textContent = `₱${monthRevenue.toFixed(2)}`;
+            document.getElementById('bestCategory').textContent = bestCategory;
+            document.getElementById('avgSale').textContent = `₱${avgSale.toFixed(2)}`;
+        }
+        
+        function updateLastUpdated() {
+            const now = new Date();
+            document.getElementById('lastUpdated').textContent = now.toLocaleString();
+        }
+        
+        function saveAllData() {
+            const data = {
+                inventory: inventory,
+                sales: sales,
+                settings: settings,
+                lastSaved: new Date().toISOString()
+            };
+            
+            try {
+                localStorage.setItem('renzJunkshopData', JSON.stringify(data));
+            } catch(e) {
+                console.log('Could not save data:', e);
+            }
+        }
+        
+        function loadAllData() {
+            try {
+                const saved = localStorage.getItem('renzJunkshopData');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    inventory = data.inventory || [];
+                    sales = data.sales || [];
+                    settings = data.settings || settings;
+                    
+                    // Load settings into form
+                    document.getElementById('shopName').value = settings.shopName;
+                    document.getElementById('shopAddress').value = settings.shopAddress;
+                    document.getElementById('shopPhone').value = settings.shopPhone;
+                    
+                    renderInventory();
+                    renderSales();
+                }
+            } catch(e) {
+                console.log('Could not load saved data:', e);
+            }
+        }
+        
+        function saveSettings() {
+            settings.shopName = document.getElementById('shopName').value;
+            settings.shopAddress = document.getElementById('shopAddress').value;
+            settings.shopPhone = document.getElementById('shopPhone').value;
+            
+            saveAllData();
+            updateLastUpdated();
+            alert('Settings saved successfully!');
+        }
+        
+        function exportData() {
+            const data = {
+                inventory: inventory,
+                sales: sales,
+                settings: settings,
+                exportDate: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `renz-junkshop-data-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.inventory && Array.isArray(data.inventory)) {
+                        inventory = data.inventory;
+                        if (data.sales && Array.isArray(data.sales)) {
+                            sales = data.sales;
+                        }
+                        if (data.settings) {
+                            settings = data.settings;
+                        }
+                        
+                        saveAllData();
+                        renderInventory();
+                        renderSales();
+                        updateAllDisplays();
+                        updateLastUpdated();
+                        alert('Data imported successfully!');
+                    } else {
+                        alert('Invalid file format!');
+                    }
+                } catch(error) {
+                    alert('Error reading file: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        function backupAllData() {
+            exportData();
+            alert('Data backup downloaded successfully!');
+        }
+        
+        function restoreData(event) {
+            if (confirm('This will replace all current data. Are you sure?')) {
+                importData(event);
+            }
+        }
+        
+        function clearAllData() {
+            if (confirm('Are you sure you want to clear all inventory data? This cannot be undone!')) {
+                inventory = [];
+                saveAllData();
+                renderInventory();
+                updateAllDisplays();
+                updateLastUpdated();
+            }
+        }
+        
+        function resetSystem() {
+            if (confirm('This will reset the entire system including inventory, sales, and settings. Are you sure?')) {
+                if (confirm('This action cannot be undone. Continue?')) {
+                    localStorage.removeItem('renzJunkshopData');
+                    location.reload();
+                }
+            }
+        }
+        
+        function generateDailyReport() {
+            const today = new Date().toLocaleDateString();
+            const todaySales = sales.filter(sale => sale.dateString === today);
+            
+            let reportHTML = `
+                <div class="data-table">
+                    <h3>Daily Sales Report - ${today}</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Item</th>
+                                <th>Quantity</th>
+                                <th>Amount</th>
+                                <th>Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            if (todaySales.length === 0) {
+                reportHTML += `
+                    <tr><td colspan="5" style="text-align: center;">No sales today</td></tr>
+                `;
+            } else {
+                todaySales.forEach(sale => {
+                    const time = new Date(sale.date).toLocaleTimeString();
+                    reportHTML += `
+                        <tr>
+                            <td>${time}</td>
+                            <td>${sale.itemName}</td>
+                            <td>${sale.quantitySold}</td>
+                            <td>₱${sale.totalAmount.toFixed(2)}</td>
+                            <td>₱${sale.profit.toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+                
+                const totalRevenue = todaySales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+                const totalProfit = todaySales.reduce((sum, sale) => sum + sale.profit, 0);
+                
+                reportHTML += `
+                    <tr style="background: #f8f9fa; font-weight: bold;">
+                        <td colspan="3">TOTALS</td>
+                        <td>₱${totalRevenue.toFixed(2)}</td>
+                        <td>₱${totalProfit.toFixed(2)}</td>
+                    </tr>
+                `;
+            }
+            
+            reportHTML += '</tbody></table></div>';
+            document.getElementById('reportContent').innerHTML = reportHTML;
+        }
+        
+        function generateWeeklyReport() {
+            const now = new Date();
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            const weekSales = sales.filter(sale => new Date(sale.date) >= weekAgo);
+            
+            // Group by date
+            const dailyStats = {};
+            weekSales.forEach(sale => {
+                const date = sale.dateString;
+                if (!dailyStats[date]) {
+                    dailyStats[date] = { revenue: 0, profit: 0, items: 0 };
+                }
+                dailyStats[date].revenue += sale.totalAmount;
+                dailyStats[date].profit += sale.profit;
+                dailyStats[date].items += sale.quantitySold;
+            });
+            
+            let reportHTML = `
+                <div class="data-table">
+                    <h3>Weekly Sales Report (Last 7 Days)</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Items Sold</th>
+                                <th>Revenue</th>
+                                <th>Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            if (Object.keys(dailyStats).length === 0) {
+                reportHTML += `<tr><td colspan="4" style="text-align: center;">No sales this week</td></tr>`;
+            } else {
+                let totalRevenue = 0, totalProfit = 0, totalItems = 0;
+                
+                Object.keys(dailyStats).sort().forEach(date => {
+                    const stats = dailyStats[date];
+                    totalRevenue += stats.revenue;
+                    totalProfit += stats.profit;
+                    totalItems += stats.items;
+                    
+                    reportHTML += `
+                        <tr>
+                            <td>${date}</td>
+                            <td>${stats.items}</td>
+                            <td>₱${stats.revenue.toFixed(2)}</td>
+                            <td>₱${stats.profit.toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+                
+                reportHTML += `
+                    <tr style="background: #f8f9fa; font-weight: bold;">
+                        <td>TOTALS</td>
+                        <td>${totalItems}</td>
+                        <td>₱${totalRevenue.toFixed(2)}</td>
+                        <td>₱${totalProfit.toFixed(2)}</td>
+                    </tr>
+                `;
+            }
+            
+            reportHTML += '</tbody></table></div>';
+            document.getElementById('reportContent').innerHTML = reportHTML;
+        }
+        
+        function generateMonthlyReport() {
+            const now = new Date();
+            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            const monthSales = sales.filter(sale => new Date(sale.date) >= monthAgo);
+            
+            // Group by category
+            const categoryStats = {};
+            monthSales.forEach(sale => {
+                if (!categoryStats[sale.category]) {
+                    categoryStats[sale.category] = { revenue: 0, profit: 0, items: 0 };
+                }
+                categoryStats[sale.category].revenue += sale.totalAmount;
+                categoryStats[sale.category].profit += sale.profit;
+                categoryStats[sale.category].items += sale.quantitySold;
+            });
+            
+            let reportHTML = `
+                <div class="data-table">
+                    <h3>Monthly Sales Report by Category (Last 30 Days)</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Items Sold</th>
+                                <th>Revenue</th>
+                                <th>Profit</th>
+                                <th>Avg per Item</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            if (Object.keys(categoryStats).length === 0) {
+                reportHTML += `<tr><td colspan="5" style="text-align: center;">No sales this month</td></tr>`;
+            } else {
+                let totalRevenue = 0, totalProfit = 0, totalItems = 0;
+                
+                // Sort by revenue
+                const sortedCategories = Object.keys(categoryStats).sort((a, b) => categoryStats[b].revenue - categoryStats[a].revenue);
+                
+                sortedCategories.forEach(category => {
+                    const stats = categoryStats[category];
+                    totalRevenue += stats.revenue;
+                    totalProfit += stats.profit;
+                    totalItems += stats.items;
+                    const avgPerItem = stats.items > 0 ? (stats.revenue / stats.items) : 0;
+                    
+                    reportHTML += `
+                        <tr>
+                            <td>${category}</td>
+                            <td>${stats.items}</td>
+                            <td>₱${stats.revenue.toFixed(2)}</td>
+                            <td>₱${stats.profit.toFixed(2)}</td>
+                            <td>₱${avgPerItem.toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+                
+                reportHTML += `
+                    <tr style="background: #f8f9fa; font-weight: bold;">
+                        <td>TOTALS</td>
+                        <td>${totalItems}</td>
+                        <td>₱${totalRevenue.toFixed(2)}</td>
+                        <td>₱${totalProfit.toFixed(2)}</td>
+                        <td></td>
+                    </tr>
+                `;
+            }
+            
+            reportHTML += '</tbody></table></div>';
+            document.getElementById('reportContent').innerHTML = reportHTML;
+        }
+        
+        function exportSalesData() {
+            const data = {
+                sales: sales,
+                exportDate: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `renz-junkshop-sales-data-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            alert('Sales data exported successfully!');
+        }
+
+        // Auto-save functionality
+        setInterval(saveAllData, 30000); // Save every 30 seconds
+
+    </script>
+</body>
+</html>
